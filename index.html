@@ -6,6 +6,7 @@
 <title>Elegant Calm Task Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* same CSS as yours */
 *{box-sizing:border-box;margin:0;padding:0;scrollbar-width:none;-ms-overflow-style:none;}
 *::-webkit-scrollbar{display:none;}
 body{font-family:'Inter',sans-serif;transition:.6s;overflow-x:hidden;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;background:var(--bg);color:var(--text);}
@@ -89,9 +90,9 @@ window.onload=()=>{
   loadTasks();
 };
 
+// Task bucket
 let bucketList=document.getElementById("bucketList");
 
-// Add task
 function addCustomTask(){
   let name=document.getElementById("customTask").value.trim();
   let duration=document.getElementById("customDuration").value.trim();
@@ -99,18 +100,21 @@ function addCustomTask(){
   let importance=document.getElementById("customImportance").value;
   if(name==="") return;
 
-  let copyText=`| ${category} | ${importance} | ${name} | ${duration} min |`;
-  let displayHTML=`| ${category} | ${importance} | <b>${name}</b> | ${duration} min |`;
+  let taskData=`| ${category} | ${importance} | ${name} | ${duration} min |`;
 
   let li=document.createElement("li");
-  li.innerHTML=`${displayHTML} <span class="delete-btn" onclick="deleteTask(this)">Delete</span>`;
-  li.dataset.text = copyText; // Save plain text for persistence
+  li.dataset.text=taskData; // ✅ save text in dataset
+  li.innerHTML=`| ${category} | ${importance} | <b>${name}</b> | ${duration} min | 
+    <span class="delete-btn" onclick="deleteTask(this)">Delete</span>`;
 
   li.onclick=function(e){
     if(e.target.classList.contains('delete-btn')) return;
-    navigator.clipboard.writeText(copyText);
-    showToast();
+    navigator.clipboard.writeText(taskData);
+    let toast=document.getElementById("toast");
+    toast.classList.add("show");
+    setTimeout(()=>{toast.classList.remove("show")},1500);
   }
+
   bucketList.appendChild(li);
   setTimeout(()=>{li.classList.add("show")},50);
   saveTasks();
@@ -125,7 +129,7 @@ function deleteTask(el){
   saveTasks();
 }
 
-// Search
+// Search tasks
 function searchTasks(){
   let q=document.getElementById("searchInput").value.toLowerCase();
   Array.from(bucketList.children).forEach(li=>{
@@ -141,13 +145,19 @@ function toggleVoice(){
   if(listening){ recognition.stop(); listening=false; document.getElementById("voiceBtn").textContent="🎤 Start"; return;}
   recognition=new webkitSpeechRecognition();
   recognition.continuous=true;
-  recognition.interimResults=false; // final results only for better accuracy
+  recognition.interimResults=true;
   recognition.lang='en-US';
+  let finalTranscript='';
   recognition.onresult=function(event){
-    let transcript=event.results[event.results.length-1][0].transcript.trim();
-    document.getElementById("customTask").value=transcript;
+    let interimTranscript='';
+    for(let i=event.resultIndex;i<event.results.length;i++){
+      if(event.results[i].isFinal){finalTranscript+=event.results[i][0].transcript+' ';}
+      else{interimTranscript+=event.results[i][0].transcript;}
+    }
+    setTimeout(()=>{document.getElementById("customTask").value=(finalTranscript+interimTranscript).trim();},200);
   };
   recognition.onerror=function(event){console.error("Voice error:",event.error);}
+  recognition.onend=function(){if(listening) recognition.start();}
   recognition.start();
   listening=true;
   document.getElementById("voiceBtn").textContent="🛑 Stop";
@@ -161,37 +171,31 @@ function correctTaskName(){
   document.getElementById("customTask").value=corrected;
 }
 
-// Save / Load
+// Save/load
 function saveTasks(){
   let tasks=[];
   Array.from(bucketList.children).forEach(li=>tasks.push(li.dataset.text));
   localStorage.setItem('tasks',JSON.stringify(tasks));
 }
+
 function loadTasks(){
   let saved=JSON.parse(localStorage.getItem('tasks')||"[]");
-  saved.forEach(copyText=>{
-    let parts=copyText.split('|');
-    let name=parts[3].trim();
-    let displayHTML=`| ${parts[1].trim()} | ${parts[2].trim()} | <b>${name}</b> | ${parts[4].trim()} |`;
-
+  saved.forEach(text=>{
     let li=document.createElement("li");
-    li.dataset.text=copyText;
-    li.innerHTML=`${displayHTML} <span class="delete-btn" onclick="deleteTask(this)">Delete</span>`;
+    li.dataset.text=text;
+    let parts=text.split('|');
+    li.innerHTML=`| ${parts[1].trim()} | ${parts[2].trim()} | <b>${parts[3].trim()}</b> | ${parts[4].trim()} | 
+      <span class="delete-btn" onclick="deleteTask(this)">Delete</span>`;
     li.onclick=function(e){
       if(e.target.classList.contains('delete-btn')) return;
-      navigator.clipboard.writeText(copyText);
-      showToast();
+      navigator.clipboard.writeText(text);
+      let toast=document.getElementById("toast");
+      toast.classList.add("show");
+      setTimeout(()=>{toast.classList.remove("show")},1500);
     }
     bucketList.appendChild(li);
     setTimeout(()=>{li.classList.add("show")},50);
   });
-}
-
-// Toast
-function showToast(){
-  let toast=document.getElementById("toast");
-  toast.classList.add("show");
-  setTimeout(()=>{toast.classList.remove("show")},1500);
 }
 </script>
 </body>
